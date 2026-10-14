@@ -1,7 +1,7 @@
 name: Фото для карточек (Unsplash)
 
 # Скачивает фото по списку turkey-cards/photos/wanted.txt и кладёт их в ветку cards.
-# Строка списка: <папка>/<имя> <Unsplash ID>, например: alanya/castle-01 e5ICLIEcUUc
+# Строка списка: <папка>/<имя> <ссылка images.unsplash.com/photo-...>
 # Нужен, потому что облачная задача не может скачивать картинки со стоков напрямую.
 on:
   push:
@@ -29,9 +29,11 @@ jobs:
             out="$dest.jpg"
             [ -f "$out" ] && continue
             mkdir -p "$(dirname "$out")"
-            # Прямая ссылка на снимок берётся из og:image страницы фото (без ключа API)
-            img=$(curl -fsSL -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36" "https://unsplash.com/photos/$id" \
-                  | grep -oE 'https://images\.unsplash\.com/photo-[^"&?]+' | head -1)
+            # Вторая колонка — прямая ссылка images.unsplash.com/photo-... (или ID страницы Unsplash)
+            case "$id" in
+              https://*) img="$id" ;;
+              *) img=$(curl -fsSL -A "Mozilla/5.0" "https://unsplash.com/photos/$id" | grep -oE 'https://images\.unsplash\.com/photo-[^"&?]+' | head -1) ;;
+            esac
             if [ -n "$img" ] && curl -fsSL "$img?w=1800&q=85&fm=jpg" -o /tmp/p.jpg; then
               convert /tmp/p.jpg -auto-orient -resize '1600x1600>' -strip -quality 82 "$out" \
                 && echo "ok $dest $id https://unsplash.com/photos/$id" >> fetched.txt
