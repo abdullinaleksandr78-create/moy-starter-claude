@@ -56,3 +56,4 @@ retrospectives/*dry-run*
 retrospectives/*known-limitations*
 retrospectives/*pre-release*
 retrospectives/*ready-for-release*
+__pycache__/

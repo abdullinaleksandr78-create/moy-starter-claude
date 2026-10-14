@@ -24,7 +24,7 @@ jobs:
           set -u
           sudo apt-get -qq install -y imagemagick >/dev/null || true
           cd turkey-cards/photos
-          : > fetched.txt
+          : > /tmp/fetched.txt
           grep -vE '^\s*(#|$)' wanted.txt | while read -r dest id; do
             out="$dest.jpg"
             [ -f "$out" ] && continue
@@ -36,12 +36,12 @@ jobs:
             esac
             if [ -n "$img" ] && curl -fsSL "$img?w=1800&q=85&fm=jpg" -o /tmp/p.jpg; then
               convert /tmp/p.jpg -auto-orient -resize '1600x1600>' -strip -quality 82 "$out" \
-                && echo "ok $dest $id https://unsplash.com/photos/$id" >> fetched.txt
+                && echo "ok $dest $id https://unsplash.com/photos/$id" >> /tmp/fetched.txt
             else
-              echo "fail $dest $id" >> fetched.txt
+              echo "fail $dest $id" >> /tmp/fetched.txt
             fi
           done
-          cat fetched.txt
+          cat /tmp/fetched.txt
       - name: Закоммитить
         run: |
           git config user.name "github-actions[bot]"

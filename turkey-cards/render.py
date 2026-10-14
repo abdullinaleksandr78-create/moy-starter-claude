@@ -14,6 +14,9 @@ import base64, html, json, math, mimetypes, pathlib, sys
 
 from playwright.sync_api import sync_playwright
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import layouts  # noqa: E402  макеты по рубрикам: cities, steps, checklist, qa, photo
+
 HERE = pathlib.Path(__file__).resolve().parent
 FONTS = HERE / "fonts"
 LOGO = HERE / "assets" / "logo-gold.png"
@@ -52,7 +55,7 @@ def css():
 @font-face{{font-family:'Mono';src:url('{f}/IBMPlexMono-Medium.ttf');font-weight:500}}
 @font-face{{font-family:'Playfair';src:url('{f}/PlayfairDisplay-VF.ttf');font-weight:400 900}}
 @font-face{{font-family:'Manrope';src:url('{f}/Manrope-VF.ttf');font-weight:200 800}}
-*{{box-sizing:border-box}} body{{margin:0;background:{NAVY}}}
+*{{box-sizing:border-box}} body{{margin:0;background:{NAVY}}} img{{image-rendering:auto}}
 .k{{font-family:Mono;letter-spacing:4px;text-transform:uppercase}}
 """
 
@@ -304,8 +307,14 @@ def render(d, out_dir, name):
     with sync_playwright() as p:
         b = p.chromium.launch()
         pg = b.new_page()
-        for fmt, fn in (("tall", tall), ("wide", wide)):
-            W, H, body = fn(d)
+        lay = d.get("layout") or "classic"
+        fns = layouts.LAYOUTS.get(lay, (tall, wide))
+        jobs = [("tall", lambda: fns[0](d)), ("wide", lambda: fns[1](d))]
+        slides = d.get("slides") or []
+        for i, s in enumerate(slides, start=2):
+            jobs.append((f"s{i}", lambda s=s, i=i: layouts.slide_tall(d, s, i, len(slides) + 1)))
+        for fmt, fn in jobs:
+            W, H, body = fn()
             out = out_dir / f"{name}-{fmt}.png"
             if shoot(pg, body, W, H, out):
                 bad.append(fmt)
