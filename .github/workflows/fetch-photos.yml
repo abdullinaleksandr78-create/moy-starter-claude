@@ -1,0 +1,47 @@
+name: Фото для карточек (Unsplash)
+
+# Скачивает фото по списку turkey-cards/photos/wanted.txt и кладёт их в ветку cards.
+# Строка списка: <папка>/<имя> <Unsplash ID>, например: alanya/castle-01 e5ICLIEcUUc
+# Нужен, потому что облачная задача не может скачивать картинки со стоков напрямую.
+on:
+  push:
+    branches: [cards]
+    paths: ['turkey-cards/photos/wanted.txt']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cards
+      - name: Скачать и ужать фото
+        run: |
+          set -u
+          sudo apt-get -qq install -y imagemagick >/dev/null || true
+          cd turkey-cards/photos
+          : > fetched.log
+          grep -vE '^\s*(#|$)' wanted.txt | while read -r dest id; do
+            out="$dest.jpg"
+            [ -f "$out" ] && continue
+            mkdir -p "$(dirname "$out")"
+            if curl -fsSL -A "Mozilla/5.0" "https://unsplash.com/photos/$id/download?force=true" -o /tmp/p.jpg; then
+              convert /tmp/p.jpg -auto-orient -resize '1600x1600>' -strip -quality 82 "$out" \
+                && echo "ok $dest $id https://unsplash.com/photos/$id" >> fetched.log
+            else
+              echo "fail $dest $id" >> fetched.log
+            fi
+          done
+          cat fetched.log
+      - name: Закоммитить
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git add turkey-cards/photos
+          git diff --cached --quiet && exit 0
+          git commit -m "Фото: скачаны с Unsplash по wanted.txt"
+          git push origin HEAD:cards
