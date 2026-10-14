@@ -24,19 +24,22 @@ jobs:
           set -u
           sudo apt-get -qq install -y imagemagick >/dev/null || true
           cd turkey-cards/photos
-          : > fetched.log
+          : > fetched.txt
           grep -vE '^\s*(#|$)' wanted.txt | while read -r dest id; do
             out="$dest.jpg"
             [ -f "$out" ] && continue
             mkdir -p "$(dirname "$out")"
-            if curl -fsSL -A "Mozilla/5.0" "https://unsplash.com/photos/$id/download?force=true" -o /tmp/p.jpg; then
+            # Прямая ссылка на снимок берётся из og:image страницы фото (без ключа API)
+            img=$(curl -fsSL -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36" "https://unsplash.com/photos/$id" \
+                  | grep -oE 'https://images\.unsplash\.com/photo-[^"&?]+' | head -1)
+            if [ -n "$img" ] && curl -fsSL "$img?w=1800&q=85&fm=jpg" -o /tmp/p.jpg; then
               convert /tmp/p.jpg -auto-orient -resize '1600x1600>' -strip -quality 82 "$out" \
-                && echo "ok $dest $id https://unsplash.com/photos/$id" >> fetched.log
+                && echo "ok $dest $id https://unsplash.com/photos/$id" >> fetched.txt
             else
-              echo "fail $dest $id" >> fetched.log
+              echo "fail $dest $id" >> fetched.txt
             fi
           done
-          cat fetched.log
+          cat fetched.txt
       - name: Закоммитить
         run: |
           git config user.name "github-actions[bot]"
